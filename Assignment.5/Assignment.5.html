@@ -1,0 +1,135 @@
+<html>
+<head>
+    <meta http-equiv="Content-Type" content="text/html;charset=utf-8">
+    <title>Texture Mapping to a Sphere</title>
+
+    <script id="vertex-shader" type="x-shader/x-vertex">
+    attribute vec4 vPosition;
+    attribute vec3 vNormal;
+    attribute vec2 vUv;
+    
+    uniform mat4 ml_matrix;
+    uniform mat4 pr_matrix;
+    uniform mat4 vw_matrix;
+    uniform mat3 normal_matrix;
+    uniform vec4 lightPosition;
+
+    varying vec2 fUv;
+    
+    varying vec3 fL;
+    varying vec3 fH;
+    varying vec3 fN;
+    
+    void main() 
+    { 
+        mat4 modelViewMatrix = ml_matrix;
+        gl_Position = pr_matrix * ml_matrix * vPosition;                
+        vec3 normal = normalize ( normal_matrix * normalize ( vNormal ));
+        vec3 pos = -(modelViewMatrix * vPosition).xyz;
+        
+        //fixed light postion
+        vec3 light = lightPosition.xyz;
+        fL = normalize( light - pos );
+
+
+        vec3 E = normalize( -pos );
+        fH = normalize( fL + E );
+
+        vec4 NN = vec4(vNormal,0);
+
+        fN = normalize( (modelViewMatrix*NN).xyz);
+    
+        fUv = vUv;
+        gl_Position = pr_matrix * ml_matrix * vPosition;
+    }
+    </script>
+
+    <script id="fragment-shader" type="x-shader/x-fragment">
+    precision mediump float;
+    
+    varying vec2 fUv;
+    
+    uniform vec4 ambientProduct;
+    uniform vec4 diffuseProduct;
+    uniform vec4 specularProduct;
+    
+    uniform float materialShininess;
+    
+    varying vec3 fL;
+    varying vec3 fH;
+    varying vec3 fN;
+
+    uniform sampler2D texture;
+
+    void main() 
+    {  
+        // Compute terms in the illumination equation
+        vec4 ambient = ambientProduct;
+
+        float Kd = max( dot(fL, fN), 0.0 );
+        vec4 diffuse = Kd*diffuseProduct;
+
+        float Ks = pow( max(dot(fN, fH), 0.0), materialShininess );
+        vec4  specular = Ks * specularProduct;
+
+        if( dot(fL, fN) < 0.0 ) 
+        {
+            specular = vec4(0.0, 0.0, 0.0, 1.0);
+        } 
+
+        vec4 fColor = ambient + diffuse + specular;
+
+        fColor.a = 1.0;
+    
+        gl_FragColor = fColor * texture2D( texture, fUv );
+        //gl_FragColor = vec4(fN.x,fN.y,fN.z,1.0);
+    }
+    </script>
+    
+    <script type="text/javascript" src="common/webgl-utils.js"></script>
+    <script type="text/javascript" src="common/initShaders.js"></script>
+    <script type="text/javascript" src="common/MV.js"></script>
+    <script type="text/javascript" src="Assignment.5.js"></script>
+    <script type="text/javascript" src="common/webgl-debug.js"></script>
+</head>
+
+<body>
+    <table style="width: 1200px;" border="0" cellspacing="1" cellpadding="1">
+    <tbody>
+    <tr>
+    <td valign="top" rowspan="25"><canvas id="gl-canvas" width="800" height="800"> Oops ... your browser doesn't support the HTML5 canvas element </canvas></td>
+        <td>
+            <strong>Rotation around x axis</strong>
+            <input max="180" min="-180" id="rx" step="0.1" type="range" /><input id="RotationX" maxlength="3" size="3" type="text" value="0"  disabled/><br>
+            <strong>Rotation around y axis</strong>
+            <input max="180" min="-180" id="ry" step="0.1" type="range" /><input id="RotationY" maxlength="3" size="3" type="text" value="0"  disabled/><br>
+            <strong>Rotation around z axis</strong>
+            <input max="180" min="-180" id="rz" step="0.1" type="range" /><input id="RotationZ" maxlength="3" size="3" type="text" value="0"  disabled/><br>
+            <br>
+                <strong>How to create texture coordinates</strong>
+                <select id="SelectTextureMapping">
+                    <option value="0">Texture by inverse parametric form (Tetrahedron)</option>
+                    <option value="1">Spherical texture coordinates</option>
+                    <option value="2">Planar texture coordinates</option>
+                    <option value="3">Cylindrical texture coordinates</option>
+                </select>
+            <br><br>
+            
+            <strong>Diffuse Map</strong>
+            <select id="diffuseMapUrl">
+                <option value="0">None</option>
+                <option value="1" selected>Checkerboard</option>
+                <option value="2">Earth</option>
+            </select>
+            <button onclick="useDiffuseTextureFromWeb()">Load Image</button><br><br>
+            
+            <strong>Bump Map</strong>
+            <select id="bumpMapUrl">
+                <option value="0" selected>None</option>
+            </select>
+            <button onclick="useBumpTextureFromWeb()">Load Image</button>
+            <img id="earthMap" src="earth.jpg" hidden></img>
+        </td>
+    </tr>    
+</body>
+</html>
