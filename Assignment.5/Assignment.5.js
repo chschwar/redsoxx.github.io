@@ -243,7 +243,7 @@ window.onload = function init()
     gl.depthFunc(gl.LESS);
     
     gl.enable(gl.CULL_FACE);
-    gl.frontFace(gl.CW)
+    gl.frontFace(gl.CCW)
     gl.cullFace(gl.FRONT)
     
     
@@ -386,7 +386,7 @@ function createSphere()
     }
     else
     {
-        sphere = new Sphere(80.0,80.0,g_textureMappingTypeValue-1);
+        sphere = new Sphere(40,40,g_textureMappingTypeValue-1);
         sphere.initSphere();
     }
 }
@@ -561,6 +561,7 @@ function SphereTetrahedron(numSubDivisions)
 }
 
 
+
 function Sphere(latitudeBands, longitudeBands, typeOfMapping)
 {   
     this.uv = 
@@ -574,19 +575,26 @@ function Sphere(latitudeBands, longitudeBands, typeOfMapping)
     this.normals = [];
     
     this.vertexArray = [];
+    this.indexData = [];
     this.numVertices = 0;
+    this.numIndices = 0;
 
     this.typeOfMapping = typeOfMapping;
     this.sphereRadius = 1.0
     this.latitudeBands = latitudeBands;
     this.longitudeBands = longitudeBands;
     
+    this.indexBuffer = 0,
     this.vertexBuffer = 0;
         
     this.destroy = function()
     {
         gl.deleteBuffer(this.vertexBuffer);
+        gl.deleteBuffer(this.indexBuffer);
         this.vertexArray = [];
+        this.indexData = [];
+        this.positions = [];
+        this.normals = [];
     }
         
     this.initSphere = function()
@@ -599,197 +607,64 @@ function Sphere(latitudeBands, longitudeBands, typeOfMapping)
     { 
         this.numVertices = 0;      
                    
-        // adapted from http://learningwebgl.com/blog/?p=1253
-        for (var latNumber = 0; latNumber <= this.latitudeBands; latNumber++) 
+        for (var latNumber = 0; latNumber <= this.latitudeBands; ++latNumber) 
         {
             var theta = latNumber * Math.PI / this.latitudeBands;
             var sinTheta = Math.sin(theta);
             var cosTheta = Math.cos(theta);
-
-            for (var longNumber = 0; longNumber <= this.longitudeBands; longNumber++) 
-            {
-                var phi = longNumber * 2 * Math.PI / this.longitudeBands;
-                var sinPhi = Math.sin(phi);
+            
+            for (var longNumber = 0; longNumber <= this.latitudeBands; ++longNumber) 
+            {                
+                var phi = longNumber * 2 * Math.PI / this.latitudeBands;                
+                var sinPhi = Math.sin(phi);                
                 var cosPhi = Math.cos(phi);
 
-                var x = cosPhi * sinTheta;
+                var x = Math.sin(phi) * Math.sin(theta);
                 var y = cosTheta;
-                var z = sinPhi * sinTheta;
+                var z = Math.cos(phi) * Math.sin(theta)
+
+                this.vertexArray.push(vec4(x,y,z,1.0));
                 
-                var uvSpherical = vec2( 1.0 - ((longNumber*1.0) / this.longitudeBands), 1.0 - ((latNumber*1.0) / this.latitudeBands) );
-                var uvPlanar = vec2( x, y );
-                var uvCylindrical = vec2( theta, phi );
-                
-                this.uv.spherical.push( uvSpherical );
-                this.uv.planar.push( uvPlanar );                
-                this.uv.cylindrical.push( uvCylindrical );
-                
-                var position = vec4(this.sphereRadius * x, this.sphereRadius * y, this.sphereRadius * z, 1);
-                var normal = vec3(position[0],position[1],position[2]);
-                
-                this.positions.push( position );  
-                this.vertexArray.push( position );
-                
-                if (0 == this.typeOfMapping)
+                if (0 == typeOfMapping)
                 {
-                    this.vertexArray.push( uvSpherical );
+                    this.vertexArray.push(vec2(1 - (longNumber*1.0 / this.latitudeBands), 1 - (latNumber*1.0 / this.latitudeBands)));
                 }
-                else if (1 == this.typeOfMapping)
+                else if (1 == typeOfMapping)
                 {
-                    this.vertexArray.push( uvPlanar );
+                    this.vertexArray.push(vec2(x,y));
+                }
+                else if (2 == typeOfMapping)
+                {
+                    this.vertexArray.push(vec2(theta,phi));
                 }
                 else
                 {
-                    this.vertexArray.push( uvCylindrical );
+                    this.vertexArray.push(vec2(1 - (longNumber*1.0 / this.latitudeBands), 1 - (latNumber*1.0 / this.latitudeBands)));
                 }
                 
-                
-                this.normals.push( normalize(normal) );  // normal of the sphere
-                this.vertexArray.push( normalize(normal) );
-                this.numVertices++;
+                this.vertexArray.push(normalize(vec3(x,y,z)));
+                                
+                this.numVertices ++;
             }
         }
         
-        // build interleaved array with complete vertex information
-        for (var latNumber = 0; latNumber < this.latitudeBands; latNumber++) 
+        for (var latNumberI = 0; latNumberI < this.latitudeBands; ++latNumberI) 
         {
-            for (var longNumber = 0; longNumber < this.longitudeBands; longNumber++) 
+            for (var longNumberI = 0; longNumberI < this.latitudeBands; ++longNumberI) 
             {
-                var first = (latNumber * (this.longitudeBands + 1)) + longNumber;
-                var second = first + this.longitudeBands + 1;
-              
-                var position = this.positions[first];
-                var normal = this.normals[first];
-                this.vertexArray.push(position);
-                
-                if (0 == this.typeOfMapping)
-                {
-                    var uvSpherical = this.uv.spherical[first];
-                    this.vertexArray.push( uvSpherical );
-                }
-                else if (1 == this.typeOfMapping)
-                {
-                    var uvPlanar = this.uv.planar[first];
-                    this.vertexArray.push( uvPlanar );
-                }
-                else
-                {
-                    var uvCylindrical = this.uv.cylindrical[first];
-                    this.vertexArray.push( uvCylindrical );
-                }
-                
-                this.vertexArray.push( normalize(normal) );  // normal of the sphere
-                
-                
-                
-                position = this.positions[second];
-                normal = this.normals[second];
-                this.vertexArray.push(position);
-                if (0 == this.typeOfMapping)
-                {
-                    var uvSpherical = this.uv.spherical[first];
-                    this.vertexArray.push( uvSpherical );
-                }
-                else if (1 == this.typeOfMapping)
-                {
-                    var uvPlanar = this.uv.planar[first];
-                    this.vertexArray.push( uvPlanar );
-                }
-                else
-                {
-                    var uvCylindrical = this.uv.cylindrical[first];
-                    this.vertexArray.push( uvCylindrical );
-                }
-                this.vertexArray.push( normalize(normal) );  // normal of the sphere
-                
-                position = this.positions[first+1];
-                normal = this.normals[first+1];
-                this.vertexArray.push(position);
-                if (0 == this.typeOfMapping)
-                {
-                    var uvSpherical = this.uv.spherical[first+1];
-                    this.vertexArray.push( uvSpherical );
-                }
-                else if (1 == this.typeOfMapping)
-                {
-                    var uvPlanar = this.uv.planar[first+1];
-                    this.vertexArray.push( uvPlanar );
-                }
-                else
-                {
-                    var uvCylindrical = this.uv.cylindrical[first+1];
-                    this.vertexArray.push( uvCylindrical );
-                }
-                this.vertexArray.push( normalize(normal) );  // normal of the sphere
+                var first = (latNumberI * (this.latitudeBands+1)) + longNumberI;
+                var second = first + this.latitudeBands + 1;
+                this.indexData.push(first);
+                this.indexData.push(second);
+                this.indexData.push(first+1);
 
-                position = this.positions[second];
-                normal = this.normals[second];
-                this.vertexArray.push(position);
-                if (0 == this.typeOfMapping)
-                {
-                    var uvSpherical = this.uv.spherical[second];
-                    this.vertexArray.push( uvSpherical );
-                }
-                else if (1 == this.typeOfMapping)
-                {
-                    var uvPlanar = this.uv.planar[second];
-                    this.vertexArray.push( uvPlanar );
-                }
-                else
-                {
-                    var uvCylindrical = this.uv.cylindrical[second];
-                    this.vertexArray.push( uvCylindrical );
-                }
-                this.vertexArray.push( normalize(normal) );  // normal of the sphere
+                this.indexData.push(second);
+                this.indexData.push(second+1);
+                this.indexData.push(first+1);  
                 
-                position = this.positions[second+1];
-                normal = this.normals[second+1];
-                this.vertexArray.push(position);
-                if (0 == this.typeOfMapping)
-                {
-                    var uvSpherical = this.uv.spherical[second+1];
-                    this.vertexArray.push( uvSpherical );
-                }
-                else if (1 == this.typeOfMapping)
-                {
-                    var uvPlanar = this.uv.planar[second+1];
-                    this.vertexArray.push( uvPlanar );
-                }
-                else
-                {
-                    var uvCylindrical = this.uv.cylindrical[second+1];
-                    this.vertexArray.push( uvCylindrical );
-                }
-                this.vertexArray.push( normalize(normal) );  // normal of the sphere
-                
-                position = this.positions[first+1];
-                normal = this.normals[first+1];
-                this.vertexArray.push(position);
-                if (0 == this.typeOfMapping)
-                {
-                    var uvSpherical = this.uv.spherical[first+1];
-                    this.vertexArray.push( uvSpherical );
-                }
-                else if (1 == this.typeOfMapping)
-                {
-                    var uvPlanar = this.uv.planar[first+1];
-                    this.vertexArray.push( uvPlanar );
-                }
-                else
-                {
-                    var uvCylindrical = this.uv.cylindrical[first+1];
-                    this.vertexArray.push( uvCylindrical );
-                }
-                this.vertexArray.push( normalize(normal) );  // normal of the sphere
-                
-
-                this.numVertices += 6;
+                this.numIndices+=6;
             }
         }
-        
-        this.normals = [];
-        this.positions = [];
-        this.uv = [];
     }
     
     this.initSphereBuffers = function()
@@ -805,21 +680,24 @@ function Sphere(latitudeBands, longitudeBands, typeOfMapping)
         gl.vertexAttribPointer(vUv, 2, gl.FLOAT, false, 9*4, 4*4);
         gl.vertexAttribPointer(vNormal, 3, gl.FLOAT, false, 9*4, 6*4);
         
+        this.indexBuffer = gl.createBuffer();
+        this.bindIndexBuffer();
+        gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(this.indexData), gl.STATIC_DRAW);
+
+        this.unbindIndexBuffer();
         this.unbind();
-    
-        //this.iBuffer = gl.createBuffer();
-        //gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.iBuffer);
-        //gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, flatten(this.indexData), gl.STATIC_DRAW);	
-      
     }
     
     this.render = function()
     {
         this.bind();
-        gl.drawArrays(gl.TRIANGLES, 0, this.numVertices);
-        /*gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.iBuffer);
-        gl.drawElements(gl.TRIANGLES, this.numIndices, gl.UNSIGNED_SHORT, 0);*/
+        //gl.drawArrays(gl.TRIANGLES, 0, this.numVertices);
+        //console.log(flatten(this.vertexArray));
+        this.bindIndexBuffer();
+        gl.drawElements(gl.TRIANGLES, this.numIndices, gl.UNSIGNED_SHORT, 0);
+        this.unbindIndexBuffer();
         this.unbind();
+        
     }
     
     this.bind = function()
@@ -827,11 +705,24 @@ function Sphere(latitudeBands, longitudeBands, typeOfMapping)
         gl.bindBuffer(gl.ARRAY_BUFFER, this.vertexBuffer);
     }
     
+    this.bindIndexBuffer = function()
+    {
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.indexBuffer);
+    }
+    
     this.unbind = function()
     {
         gl.bindBuffer(gl.ARRAY_BUFFER, null);
     }
+    
+    this.unbindIndexBuffer = function()
+    {
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
+    }
 }
+
+
+
 
 
 
