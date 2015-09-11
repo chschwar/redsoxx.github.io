@@ -665,6 +665,10 @@ function Sphere(latitudeBands, longitudeBands, typeOfMapping)
                 this.numIndices+=6;
             }
         }
+        
+        
+        console.log(this.numVertices);
+        console.log(this.numIndices);
     }
     
     this.initSphereBuffers = function()
