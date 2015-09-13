@@ -382,12 +382,12 @@ function createSphere()
     if (0 == g_textureMappingTypeValue)
     {
         sphere = new SphereTetrahedron(5);
-        sphere.initSphere();
+        sphere.initialize();
     }
     else
     {
         sphere = new Sphere(40,40,g_textureMappingTypeValue-1);
-        sphere.initSphere();
+        sphere.initialize();
     }
 }
 
@@ -418,7 +418,7 @@ function SphereTetrahedron(numSubDivisions)
     }
         
     // initialize the sphere geometry and initialize its buffers
-    this.initSphere = function()
+    this.initialize = function()
     { 
         this.generateSphereFromTetrahedron();
         this.buildFinalVertices();
@@ -562,7 +562,7 @@ function SphereTetrahedron(numSubDivisions)
 
 
 
-function Sphere(latitudeBands, longitudeBands, typeOfMapping)
+function Sphere2(latitudeBands, longitudeBands, typeOfMapping)
 {   
     this.uv = 
     {
