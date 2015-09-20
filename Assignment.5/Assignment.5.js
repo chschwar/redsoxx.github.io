@@ -134,6 +134,27 @@ function resetGui()
     g_time = 0.0;
 }
 
+var loadTextureFile = function(textureFileUrl) 
+{
+    /*
+    var image = new Image();
+    image.crossOrigin = "anonymous";
+    image.src = "https://s3.amazonaws.com/glowscript/textures/flower_texture.jpg";
+    image.onload = function() { configureTexture( image ); }
+    */
+    fileImage = new Image();
+    fileImage.crossOrigin = "anonymous";
+    fileImage.onload = function() 
+    {
+        configureTexture( fileImage );
+    };
+    fileImage.onerror = function() 
+    {
+        console.error('Unable to load image: ' + textureFileUrl);
+    };
+    fileImage.src = "https://s3.amazonaws.com/glowscript/textures/flower_texture.jpg";
+    //fileImage.src = textureFileUrl;
+  };
 
 function useDiffuseTextureFromWeb()
 {
@@ -149,6 +170,7 @@ function useDiffuseTextureFromWeb()
     else if(2 == id)
     {
         var g_earthImage = document.getElementById("earthMap");
+        //loadTextureFile(g_earthImage);
         if (null != g_earthImage)
         {            
             var texture = gl.createTexture();
@@ -266,7 +288,7 @@ function render()
     send(g_materialAmbient, g_materialDiffuse, g_materialSpecular, g_materialShininess);
     
     if (null != sphere)
-        sphere.render();
+        sphere.renderDump();
     
     
     requestAnimFrame( render );
@@ -387,10 +409,10 @@ function createSphere()
     else
     {
         sphere = new Sphere(40,40,g_textureMappingTypeValue-1);
+        //sphere = new Sphere(3);
         sphere.initialize();
     }
 }
-
 
 function SphereTetrahedron(numSubDivisions)
 {   
@@ -541,7 +563,7 @@ function SphereTetrahedron(numSubDivisions)
     }
     
     // render the sphere
-    this.render = function()
+    this.renderDump = function()
     {
         this.bind();
         gl.drawArrays(gl.TRIANGLES, 0, this.numVertices);

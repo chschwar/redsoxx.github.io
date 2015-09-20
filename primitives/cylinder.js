@@ -14,8 +14,13 @@ function Cylinder(tesselationFactor)
 
     this.destroy = function()
     {
-        gl.deleteBuffer(this.vertexBuffer);
-        gl.deleteBuffer(this.indexBuffer);
+        if (0 != this.vertexBuffer && 0 != this.indexBuffer)
+        {
+            gl.deleteBuffer(this.vertexBuffer);
+            gl.deleteBuffer(this.indexBuffer);
+        }
+        this.vertexBuffer = 0;
+        this.indexBuffer = 0;
         this.vertexArray = [];
         this.indexData = [];
     }
@@ -203,19 +208,8 @@ function Cylinder(tesselationFactor)
     {        
         this.vertexBuffer = gl.createBuffer();       
         this.bind();
-        gl.bufferData(gl.ARRAY_BUFFER, flatten(this.vertexArray), gl.STATIC_DRAW);
-        
-        gl.enableVertexAttribArray(vPosition);
-        gl.enableVertexAttribArray(vUv);
-        gl.enableVertexAttribArray(vNormal);
-        gl.vertexAttribPointer(vPosition, 4, gl.FLOAT, false, 9*4, 0);
-        gl.vertexAttribPointer(vUv, 2, gl.FLOAT, false, 9*4, 4*4);
-        gl.vertexAttribPointer(vNormal, 3, gl.FLOAT, false, 9*4, 6*4);
-        
         this.indexBuffer = gl.createBuffer();
-        this.bindIndexBuffer();
-        gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(this.indexData), gl.STATIC_DRAW);
-
+        this.bindIndexBuffer();        
         this.unbindIndexBuffer();
         this.unbind();
     }
@@ -228,6 +222,66 @@ function Cylinder(tesselationFactor)
         this.unbindIndexBuffer();
         this.unbind();
         
+    }
+    
+    this.enableAttributes = function()
+    {
+        gl.bufferData(gl.ARRAY_BUFFER, flatten(this.vertexArray), gl.STATIC_DRAW);        
+        gl.enableVertexAttribArray(vPosition);
+        gl.enableVertexAttribArray(vUv);
+        gl.enableVertexAttribArray(vNormal);
+        gl.vertexAttribPointer(vPosition, 4, gl.FLOAT, false, 9*4, 0);
+        gl.vertexAttribPointer(vUv, 2, gl.FLOAT, false, 9*4, 4*4);
+        gl.vertexAttribPointer(vNormal, 3, gl.FLOAT, false, 9*4, 6*4);
+        
+        
+    }
+    
+    this.drawElementArrayBuffer = function()
+    {
+        gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(this.indexData), gl.STATIC_DRAW);
+    }
+    
+    
+    this.renderDump = function()
+    {
+        this.bind();
+        this.enableAttributes();
+        this.bindIndexBuffer();
+        this.drawElementArrayBuffer();
+        gl.drawElements(gl.TRIANGLES, this.numIndices, gl.UNSIGNED_SHORT, 0);
+        this.unbindIndexBuffer();
+        this.unbind();
+    }
+    
+    this.enableAttributes = function()
+    {
+        gl.bufferData(gl.ARRAY_BUFFER, flatten(this.vertexArray), gl.STATIC_DRAW);        
+        gl.enableVertexAttribArray(vPosition);
+        gl.enableVertexAttribArray(vUv);
+        gl.enableVertexAttribArray(vNormal);
+        gl.vertexAttribPointer(vPosition, 4, gl.FLOAT, false, 9*4, 0);
+        gl.vertexAttribPointer(vUv, 2, gl.FLOAT, false, 9*4, 4*4);
+        gl.vertexAttribPointer(vNormal, 3, gl.FLOAT, false, 9*4, 6*4);
+        
+        
+    }
+    
+    this.drawElementArrayBuffer = function()
+    {
+        gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(this.indexData), gl.STATIC_DRAW);
+    }
+    
+    
+    this.renderDump = function()
+    {
+        this.bind();
+        this.enableAttributes();
+        this.bindIndexBuffer();
+        this.drawElementArrayBuffer();
+        gl.drawElements(gl.TRIANGLES, this.numIndices, gl.UNSIGNED_SHORT, 0);
+        this.unbindIndexBuffer();
+        this.unbind();
     }
     
     this.bind = function()

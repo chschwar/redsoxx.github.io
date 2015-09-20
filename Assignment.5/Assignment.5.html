@@ -81,8 +81,8 @@
 
         fColor.a = 1.0;
     
-        gl_FragColor = fColor * texture2D( texture, fUv );
-        //gl_FragColor = vec4(fN.x,fN.y,fN.z,1.0);
+        gl_FragColor = fColor * texture2D( texture, fUv );       
+        //gl_FragColor = vec4(fUv.x,fUv.y,0.0,1.0);
     }
     </script>
     
@@ -92,6 +92,7 @@
     <script type="text/javascript" src="Assignment.5.js"></script>
     <script type="text/javascript" src="../primitives/sphere.js"></script>
     <script type="text/javascript" src="../primitives/cone.js"></script>
+    <script type="text/javascript" src="../primitives/plane.js"></script>
     <script type="text/javascript" src="../primitives/cylinder.js"></script>
     <script type="text/javascript" src="../primitives/cube.js"></script>
     <script type="text/javascript" src="common/webgl-debug.js"></script>

@@ -1,4 +1,15 @@
-function computeNormal(a,b,c)
+/**
+ * Create a model of a torus (surface of a doughnut).  The z-axis goes through the doughnut hole,
+ * and the center of the torus is at (0,0,0).
+ * @param outerRadius the distance from the center to the outside of the tube, 0.5 if not specified.
+ * @param innerRadius the distance from the center to the inside of the tube, outerRadius/3 if not
+ *    specified.  (This is the radius of the doughnut hole.)
+ * @param slices the number of lines of longitude, default 32.  These are slices parallel to the
+ * z-axis and go around the tube the short way (through the hole).
+ * @param stacks the number of lines of latitude plus 1, default 16.  These lines are perpendicular
+ * to the z-axis and go around the tube the long way (arouind the hole).
+ */
+ function computeNormal(a,b,c)
 {
     // https://www.opengl.org/wiki/Calculating_a_Surface_Normal
     
@@ -13,11 +24,12 @@ function computeNormal(a,b,c)
     return normalize( n );
 }
 
-function Cone(resolution)
+function Torus(outerRadius, innerRadius, slices, stacks)
 {
-    this.height = 2.0;
-    this.radius = 1.0;
-    this.resolution = resolution;
+    this.slices = slices;
+    this.stacks = stacks;
+    this.outerRadius = outerRadius;
+    this.innerRadius = innerRadius;
     
     this.vertexArray = [];
     this.indexData = [];
@@ -51,104 +63,49 @@ function Cone(resolution)
         var positions = [];
         var normals = [];
         var uv = [];
+        
+        var du = 2*Math.PI/this.slices;
+        var dv = 2*Math.PI/this.stacks;
+        var centerRadius = (this.innerRadius+this.outerRadius)/2;
+        var tubeRadius = this.outerRadius - centerRadius;
+        var i,j,u,v,cx,cy,sin,cos,x,y,z;
+        var indexV = 0;
+        var indexT = 0;
     
-        var step = (Math.PI * 2.0) / this.resolution;
-        var angle = 0.0;
-        
-        // apex of the cone
-        var vertex = vec4(0.0,this.height,0.0,1.0);
-        positions.push(vertex);
-        normals.push(vec3(0,0,0));
-        uv.push(vec2(0,0));
-        this.numVertices++;
-        
-        for (var i = 0; i < this.resolution; i++)
+        for (j = 0; j <= this.stacks; j++) 
         {
-            angle = step * i;
-            var newVertex = vec4(
-                this.radius * Math.cos(angle),
-                0.0,
-                this.radius * Math.sin(angle),
-                1.0);
-            
-            positions.push(newVertex);
-            normals.push(vec3(0,0,0));
-            uv.push(vec2(0,0));
-            this.numVertices++;
+            v = -Math.PI + j*dv;
+            cos = Math.cos(v);
+            sin = Math.sin(v);
+            for (i = 0; i <= this.slices; i++) 
+            {
+                u = i*du;
+                cx = Math.cos(u);
+                cy = Math.sin(u);
+                x = cx*(centerRadius + tubeRadius*cos);
+                y = cy*(centerRadius + tubeRadius*cos);
+                z = sin*tubeRadius;
+                positions.push(vec4(x,y,z,1.0));
+                normals.push(vec3(cx*cos,cy*cos,sin));
+                uv.push(vec2(i/slices,j/stacks));
+                this.numVertices++;
+            } 
         }
-        
-        
-        
-        
-        // define lateral surface of the cone
-        for (var i = 0; i < this.resolution; i++) 
+        this.numIndices = 0;
+        for (j = 0; j < this.stacks; j++) 
         {
-            var first = 0;
-            var second = 1 + (i % this.resolution);
-            var third = 1 + ((i+1) % this.resolution);
-            
-            var a = positions[first];
-            var b = positions[second];
-            var c = positions[third];
-            
-            var normal = computeNormal(a,b,c);
-            normals[first] = add(normals[first],normal);
-            normals[second] = add(normals[second],normal);
-            normals[third] = add(normals[third],normal);
-        
-            this.indexData.push(first);
-            this.indexData.push(second);
-            this.indexData.push(third);            
-            this.numIndices += 3;
-        }
-        
-        
-        var vertexOffset = this.numVertices;
-        var indexOffset = this.numIndices;
-        
-        // center bottom
-        var newVertex = vec4(0.0,0.0,0.0,1.0);
-        positions.push(newVertex);
-        normals.push(vec3(0,0,0));
-        uv.push(vec2(0,0));
-        this.numVertices++;
-        
-        for (var i = 0; i < this.resolution; i++)
-        {
-            angle = step * i;
-            var newVertex = vec4(
-                this.radius * Math.cos(angle),
-                0.0,
-                this.radius * Math.sin(angle),
-                1.0);
-            
-            positions.push(newVertex);
-            normals.push(vec3(0,0,0));
-            uv.push(vec2(0,0));
-            this.numVertices++;
-        }
-        
-        // bottom part of the cone
-        for (var i = 0; i < this.resolution; i++) 
-        {
-            var first = vertexOffset;
-            var third = 1 + ((i+1) % this.resolution) + vertexOffset;
-            var second = 1 + (i % this.resolution) + vertexOffset;
-            
-            
-            var a = positions[first];
-            var b = positions[second];
-            var c = positions[third];
-            
-            var normal = computeNormal(c,b,a);
-            normals[first] = add(normals[first],normal);
-            normals[second] = add(normals[second],normal);
-            normals[third] = add(normals[third],normal);
-        
-            this.indexData.push(third);
-            this.indexData.push(second);
-            this.indexData.push(first);            
-            this.numIndices += 3;
+            var row1 = j*(this.slices+1);
+            var row2 = (j+1)*(this.slices+1);
+            for (i = 0; i < this.slices; i++) 
+            {
+                this.indexData.push(row1 + i);
+                this.indexData.push(row2 + i + 1);
+                this.indexData.push(row2 + i);
+                this.indexData.push(row1 + i);
+                this.indexData.push(row1 + i + 1);
+                this.indexData.push(row2 + i + 1);
+                this.numIndices+=6;
+            }
         }
         
         for (var i = 0; i < normals.length; ++i)
@@ -193,8 +150,6 @@ function Cone(resolution)
         gl.vertexAttribPointer(vPosition, 4, gl.FLOAT, false, 9*4, 0);
         gl.vertexAttribPointer(vUv, 2, gl.FLOAT, false, 9*4, 4*4);
         gl.vertexAttribPointer(vNormal, 3, gl.FLOAT, false, 9*4, 6*4);
-        
-        
     }
     
     this.drawElementArrayBuffer = function()

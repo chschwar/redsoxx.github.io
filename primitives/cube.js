@@ -1,3 +1,12 @@
+function computeNormal2(a,b,c)
+{
+    var t1 = subtract(b, a);
+    var t2 = subtract(c, b);
+    var normal = cross(t1, t2);
+    var normal = vec3(normal);
+    return normal;
+}
+
 function Cube()
 {   
     this.vertexArray = [];
@@ -10,8 +19,13 @@ function Cube()
 
     this.destroy = function()
     {
-        gl.deleteBuffer(this.vertexBuffer);
-        gl.deleteBuffer(this.indexBuffer);
+        if (0 != this.vertexBuffer && 0 != this.indexBuffer)
+        {
+            gl.deleteBuffer(this.vertexBuffer);
+            gl.deleteBuffer(this.indexBuffer);
+        }
+        this.vertexBuffer = 0;
+        this.indexBuffer = 0;
         this.vertexArray = [];
         this.indexData = [];
     }
@@ -23,7 +37,7 @@ function Cube()
     }
     
     this.generateVertices = function()
-    {           
+    {                 
         
         var positions = [
             // Front face
@@ -62,7 +76,7 @@ function Cube()
             vec4(-1.0,  1.0,  1.0, 1.0),
             vec4(-1.0,  1.0, -1.0, 1.0)
         ];
-    
+
         var normals = [];
         for (var idx = 0; idx < 24; idx++)
         {
@@ -77,28 +91,28 @@ function Cube()
           vec2(0.0, 1.0),
 
           // Back face
+          vec2(0.0, 0.0),
           vec2(1.0, 0.0),
           vec2(1.0, 1.0),
           vec2(0.0, 1.0),
-          vec2(0.0, 0.0),
 
           // Top face
-          vec2(0.0, 1.0),
           vec2(0.0, 0.0),
           vec2(1.0, 0.0),
           vec2(1.0, 1.0),
+          vec2(0.0, 1.0),
 
           // Bottom face
-          vec2(1.0, 1.0),
-          vec2(0.0, 1.0),
           vec2(0.0, 0.0),
           vec2(1.0, 0.0),
+          vec2(1.0, 1.0),
+          vec2(0.0, 1.0),
 
           // Right face
+          vec2(0.0, 0.0),
           vec2(1.0, 0.0),
           vec2(1.0, 1.0),
           vec2(0.0, 1.0),
-          vec2(0.0, 0.0),
 
           // Left face
           vec2(0.0, 0.0),
@@ -107,22 +121,13 @@ function Cube()
           vec2(0.0, 1.0)
         ];
         
-        /* CW
-        0,1,2, 0,2,3,
-        4,5,6, 4,6,7,
-        8,9,10, 8,10,11,
-        12,13,14, 12,14,15,
-        16,17,18, 16,18,19,
-        20,21,22, 20,22,23
-        */
-        
         this.indexData = [
-            0,2,1, 0,3,2,
-            4,6,5, 4,7,6,
-            8,10,9, 8,11,10,
-            12,14,13, 12,15,14,
-            16,18,17, 16,19,18,
-            20,22,21, 20,23,22
+            0,1,2, 0,2,3,
+            4,5,6, 4,6,7,
+            8,9,10, 8,10,11,
+            12,13,14, 12,14,15,
+            16,17,18, 16,18,19,
+            20,21,22, 20,22,23
         ];
         
         
@@ -147,7 +152,6 @@ function Cube()
                 normals[third] = add(normals[third],normal);
             }
             {
-                
                 var a = positions[fourth];
                 var b = positions[fifth];
                 var c = positions[sixth];
@@ -168,6 +172,8 @@ function Cube()
             this.vertexArray.push(positions[i]);
             this.vertexArray.push(uv[i]);
             this.vertexArray.push(normals[i]);
+            
+            console.log(normals[i]);
         }
         
         uv = [];
@@ -182,19 +188,8 @@ function Cube()
     {        
         this.vertexBuffer = gl.createBuffer();       
         this.bind();
-        gl.bufferData(gl.ARRAY_BUFFER, flatten(this.vertexArray), gl.STATIC_DRAW);
-        
-        gl.enableVertexAttribArray(vPosition);
-        gl.enableVertexAttribArray(vUv);
-        gl.enableVertexAttribArray(vNormal);
-        gl.vertexAttribPointer(vPosition, 4, gl.FLOAT, false, 9*4, 0);
-        gl.vertexAttribPointer(vUv, 2, gl.FLOAT, false, 9*4, 4*4);
-        gl.vertexAttribPointer(vNormal, 3, gl.FLOAT, false, 9*4, 6*4);
-        
         this.indexBuffer = gl.createBuffer();
-        this.bindIndexBuffer();
-        gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(this.indexData), gl.STATIC_DRAW);
-
+        this.bindIndexBuffer();        
         this.unbindIndexBuffer();
         this.unbind();
     }
@@ -207,6 +202,34 @@ function Cube()
         this.unbindIndexBuffer();
         this.unbind();
         
+    }
+    
+    this.enableAttributes = function()
+    {
+        gl.bufferData(gl.ARRAY_BUFFER, flatten(this.vertexArray), gl.STATIC_DRAW);        
+        gl.enableVertexAttribArray(vPosition);
+        gl.enableVertexAttribArray(vUv);
+        gl.enableVertexAttribArray(vNormal);
+        gl.vertexAttribPointer(vPosition, 4, gl.FLOAT, false, 9*4, 0);
+        gl.vertexAttribPointer(vUv, 2, gl.FLOAT, false, 9*4, 4*4);
+        gl.vertexAttribPointer(vNormal, 3, gl.FLOAT, false, 9*4, 6*4);
+    }
+    
+    this.drawElementArrayBuffer = function()
+    {
+        gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(this.indexData), gl.STATIC_DRAW);
+    }
+    
+    
+    this.renderDump = function()
+    {
+        this.bind();
+        this.enableAttributes();
+        this.bindIndexBuffer();
+        this.drawElementArrayBuffer();
+        gl.drawElements(gl.TRIANGLES, this.numIndices, gl.UNSIGNED_SHORT, 0);
+        this.unbindIndexBuffer();
+        this.unbind();
     }
     
     this.bind = function()
