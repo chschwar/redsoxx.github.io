@@ -1,4 +1,4 @@
-function Cylinder(tesselationFactor)
+function Cylinder(tesselationFactor, noTop = false, noBottom = false)
 {   
     this.height = 1.0;
     this.radius = 1.0;
@@ -11,6 +11,9 @@ function Cylinder(tesselationFactor)
     
     this.indexBuffer = 0,
     this.vertexBuffer = 0;
+    
+    this.noTop = noTop;
+    this.noBottom = noBottom;
 
     this.destroy = function()
     {
@@ -37,156 +40,169 @@ function Cylinder(tesselationFactor)
         var positions = [];
         var uv = [];
     
-        // compute the upper part of the cylinder
-        positions.push(vec4(0, this.height, 0, 1));  // position
-        uv.push(vec2(0, 0));                          // uv
-        normals.push(vec3(0, 0, 0));                       // normal
-        this.numVertices++;
-                
-        var numSteps = this.resolution;
         var step = (Math.PI * 2.0) / this.resolution;
-                
-        for (var idx = 0; idx < this.resolution; idx++) 
+    
+    
+        for (var i = 0; i <= this.resolution; i++) 
         {
-            var angle = step * idx;
+            u = i*step;
+            var c = Math.cos(u);
+            var s = Math.sin(u);
+            
             positions.push(
-                vec4(Math.cos(angle) * this.radius, this.height, Math.sin(angle) * this.radius, 1));
-            uv.push(vec2(0, 0));       // uv
-            normals.push(vec3(0, 0, 0));    // normal
-            this.numVertices++;
+                vec4(
+                    c*this.radius,
+                    s*this.radius,
+                    -this.height/2,
+                    1.0
+                )
+            );
+            normals.push(
+                vec3(
+                    c,
+                    s,
+                    0
+                )
+            );            
+            uv.push(vec2(i/this.resolution, 0));
             
-        }
-        
-        for (var idx = 0; idx < this.resolution; idx++) 
-        {
-            var first = 0;
-            var second = 1 + idx;
-            var third = 1 + ((idx + 1) % this.resolution);
-            
-            var a = positions[first];
-            var b = positions[second];
-            var c = positions[third];
-            
-            var normal = computeNormal(a,b,c);
-            normals[first] = add(normals[first],normal);
-            normals[second] = add(normals[second],normal);
-            normals[third] = add(normals[third],normal);
-        
-            this.indexData.push(first);
-            this.indexData.push(second);
-            this.indexData.push(third);
-            this.numIndices+=3;
-        }
-        
-        var indexOffset = this.numVertices;
-        
-        
-        // lower part
-        positions.push(vec4(0, 0, 0, 1));  // position
-        uv.push(vec2(0, 0));        // uv
-        normals.push(vec3(0, 0, 0));     // normal
-        this.numVertices++;
-        
-        for (var idx = 0; idx < this.resolution; idx++) 
-        {
-            var angle = step * idx;
             positions.push(
-                vec4(Math.cos(angle) * this.radius, 0, Math.sin(angle) * this.radius, 1));
-            uv.push(vec2(0, 0));       // uv
-            normals.push(vec3(0, 0, 0));    // normal
-            this.numVertices++;
+                vec4(
+                    c*this.radius,
+                    s*this.radius,
+                    this.height/2,
+                    1.0
+                )
+            );
+            normals.push(
+                vec3(
+                    c,
+                    s,
+                    0
+                )
+            );            
+            uv.push(vec2(i/this.resolution, 1));
         }
-        
-        // bottom of the cylinder
-        for (var idx = 0; idx < this.resolution; idx++)
+        for (var i = 0; i < this.resolution; i++) 
         {
-            var first = indexOffset;
-            var second = (1 + indexOffset) + idx;
-            var third = (1 + indexOffset) + ((idx + 1) % this.resolution);
-            
-            var a = positions[third];
-            var b = positions[second];
-            var c = positions[first];
-            
-            var normal = computeNormal(a,b,c);
-            normals[first] = add(normals[first],normal);
-            normals[second] = add(normals[second],normal);
-            normals[third] = add(normals[third],normal);
-            
-            this.indexData.push(third);
-            this.indexData.push(second);
-            this.indexData.push(first);
-            this.numIndices+=3;
+            this.indexData.push(2*i);
+            this.indexData.push(2*i+3);
+            this.indexData.push(2*i+1);
+            this.indexData.push(2*i);
+            this.indexData.push(2*i+2);
+            this.indexData.push(2*i+3);
         }
-        indexOffset = this.numVertices;
-        
-        // the side of the cylinder
-        
-        // top
-        for (var idx = 0; idx < this.resolution; idx++) 
+    
+    
+        var startIndex = positions.length;
+        if (!this.noBottom) 
         {
-            var angle = step * idx;
             positions.push(
-                vec4(Math.cos(angle) * this.radius, this.height, Math.sin(angle) * this.radius, 1));
-            uv.push(vec2(0, 0));       // uv
-            normals.push(vec3(0,0,0));
-            this.numVertices++;
-        }
+                vec4(
+                    0,
+                    0,
+                    -this.height/2,
+                    1.0
+                )
+            );
+            normals.push(
+                vec3(
+                    0,
+                    0,
+                    -1
+                )
+            );            
+            uv.push(vec2(0.5,0.5));
         
-        // bottom
-        for (var idx = 0; idx < this.resolution; idx++) 
-        {
-            var angle = step * idx;
-            positions.push(
-                vec4(Math.cos(angle) * this.radius, 0, Math.sin(angle) * this.radius, 1));
-            uv.push(vec2(0, 0));       // uv
-            normals.push(vec3(0,0,0)); 
-            this.numVertices++;            
-        }
-        
-        
-        for (var idx = 0; idx < this.resolution; idx++) 
-        {
-            var first = indexOffset + idx;
-            var second = indexOffset + this.resolution + idx;
-            var third = indexOffset + this.resolution + (idx+1)%this.resolution;
-            var fourth = third;
-            var fifth = indexOffset + (idx+1)%this.resolution;
-            var sixth = first;
-        
-        
-            this.indexData.push(first);
-            this.indexData.push(second);
-            this.indexData.push(third);
-            this.indexData.push(fourth);
-            this.indexData.push(fifth);
-            this.indexData.push(sixth);
             
+            for (var i = 0; i <= this.resolution; i++) 
             {
-                var a = positions[first];
-                var b = positions[second];
-                var c = positions[third];
+                var u = 2*Math.PI - i*step;
+                var c = Math.cos(u);
+                var s = Math.sin(u);
                 
-                var normal = computeNormal(a,b,c);
-                normals[first] = add(normals[first],normal);
-                normals[second] = add(normals[second],normal);
-                normals[third] = add(normals[third],normal);
+                positions.push(
+                    vec4(
+                        c*this.radius,
+                        s*this.radius,
+                        -this.height/2,
+                        1.0
+                    )
+                );
+                normals.push(
+                    vec3(
+                        0,
+                        0,
+                        -1
+                    )
+                );            
+                uv.push(vec2(0.5 - 0.5*c,0.5-0.5*s));
+                
             }
+            for (var i = 0; i < this.resolution; i++) 
             {
-                
-                var a = positions[fourth];
-                var b = positions[fifth];
-                var c = positions[sixth];
-                
-                var normal = computeNormal(a,b,c);
-                normals[fourth] = add(normals[fourth],normal);
-                normals[fifth] = add(normals[fifth],normal);
-                normals[sixth] = add(normals[sixth],normal);
+                this.indexData.push(startIndex);
+                this.indexData.push(startIndex + i + 1);
+                this.indexData.push(startIndex + i + 2);
             }
-            
-            this.numIndices+=6;
         }
+        startIndex = positions.length;
+        if (!this.noTop) 
+        {
+            positions.push(
+                vec4(
+                    0,
+                    0,
+                    this.height/2,
+                    1.0
+                )
+            );
+            normals.push(
+                vec3(
+                    0,
+                    0,
+                    1
+                )
+            );            
+            uv.push(vec2(0.5,0.5));
         
+            
+            for (var i = 0; i <= this.resolution; i++) 
+            {
+                var u = i*step;
+                var c = Math.cos(u);
+                var s = Math.sin(u);
+                
+                positions.push(
+                    vec4(
+                        c*this.radius,
+                        s*this.radius,
+                        this.height/2,
+                        1.0
+                    )
+                );
+                normals.push(
+                    vec3(
+                        0,
+                        0,
+                        1
+                    )
+                );            
+                uv.push(vec2(0.5 + 0.5*c,0.5+0.5*s));
+                
+            }
+            for (var i = 0; i < this.resolution; i++) 
+            {
+                this.indexData.push(startIndex);
+                this.indexData.push(startIndex + i + 1);
+                this.indexData.push(startIndex + i + 2);
+            }
+        }
+        this.numIndices = this.indexData.length;
+        this.numVertices = positions.length;
+    
+    
+    
         for (var i = 0; i < normals.length; ++i)
         {
             normals[i] = normalize(normals[i]);
@@ -200,8 +216,8 @@ function Cylinder(tesselationFactor)
         normals = [];
         positions = [];
         
-        console.log(this.numIndices);
-        console.log(this.numVertices);
+        //console.log(this.numIndices);
+        //console.log(this.numVertices);
     }
     
     this.initBuffers = function()

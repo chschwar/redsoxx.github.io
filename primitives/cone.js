@@ -13,7 +13,7 @@ function computeNormal(a,b,c)
     return normalize( n );
 }
 
-function Cone(resolution)
+function Cone(resolution, noBottom = false)
 {
     this.height = 2.0;
     this.radius = 1.0;
@@ -26,6 +26,7 @@ function Cone(resolution)
     
     this.indexBuffer = 0,
     this.vertexBuffer = 0;
+    this.noBottom = noBottom;
         
     this.destroy = function()
     {
@@ -48,109 +49,158 @@ function Cone(resolution)
     
     this.generateVertices = function()
     {
+        var fractions = [ 0, 0.5, 0.75, 0.875, 0.9375 ];
+    
         var positions = [];
         var normals = [];
         var uv = [];
     
+        var normallength = Math.sqrt(this.height*this.height+this.radius*this.radius);
+        var n1 = this.height/normallength;
+        var n2 = this.radius/normallength; 
+    
         var step = (Math.PI * 2.0) / this.resolution;
         var angle = 0.0;
         
-        // apex of the cone
-        var vertex = vec4(0.0,this.height,0.0,1.0);
-        positions.push(vertex);
-        normals.push(vec3(0,0,0));
-        uv.push(vec2(0,0));
-        this.numVertices++;
-        
-        for (var i = 0; i < this.resolution; i++)
+        for (var fractionIdx = 0; fractionIdx < fractions.length; fractionIdx++)
         {
-            angle = step * i;
-            var newVertex = vec4(
-                this.radius * Math.cos(angle),
-                0.0,
-                this.radius * Math.sin(angle),
-                1.0);
+            var uoffset = (fractionIdx%2 == 0 ? 0:0.5);
             
-            positions.push(newVertex);
-            normals.push(vec3(0,0,0));
-            uv.push(vec2(0,0));
-            this.numVertices++;
+            for (var idx = 0; idx <= this.resolution; idx++)
+            {
+                var h1 = -this.height/2 + fractions[fractionIdx]*this.height;
+                var u = (idx+uoffset)*step;
+                var c = Math.cos(u);
+                var s = Math.sin(u);
+                
+                positions.push(
+                    vec4(
+                        c*this.radius*(1-fractions[fractionIdx]),
+                        s*this.radius*(1-fractions[fractionIdx]),
+                        h1,
+                        1.0
+                    )
+                );
+                normals.push(
+                    vec3(
+                        c*n1,
+                        s*n1,
+                        n2
+                    )
+                );
+                
+                uv.push(vec2((idx+uoffset)/this.resolution, fractions[fractionIdx]));
+            }
         }
         
         
+        for (var j = 0; j < fractions.length-1; j++) 
+        {
+            var row1 = j*(this.resolution+1);
+            var row2 = (j+1)*(this.resolution+1);
+            for (var i = 0; i < this.resolution; i++) 
+            {
+                this.indexData.push(row1 + i);
+                this.indexData.push(row2 + i + 1);
+                this.indexData.push(row2 + i);
+                this.indexData.push(row1 + i);
+                this.indexData.push(row1 + i + 1);
+                this.indexData.push(row2 + i + 1);
+            }
+        }
+        
+        var start = positions.length - (this.resolution+1);
+        for (var i = 0; i < this.resolution; i++) 
+        { // slices points at top, with different normals, texcoords
+            var u = (i+0.5)*step;
+            var c = Math.cos(u);
+            var s = Math.sin(u);
+            
+            positions.push(
+                vec4(
+                    0,
+                    0,
+                    this.height/2,
+                    1.0
+                )
+            );
+            
+            normals.push(
+                vec3(
+                    c*n1,
+                    s*n1,
+                    n2
+                )
+            );
+
+            uv.push(vec2((i+0.5)/this.resolution,1));
+        }
         
         
-        // define lateral surface of the cone
         for (var i = 0; i < this.resolution; i++) 
         {
-            var first = 0;
-            var second = 1 + (i % this.resolution);
-            var third = 1 + ((i+1) % this.resolution);
-            
-            var a = positions[first];
-            var b = positions[second];
-            var c = positions[third];
-            
-            var normal = computeNormal(a,b,c);
-            normals[first] = add(normals[first],normal);
-            normals[second] = add(normals[second],normal);
-            normals[third] = add(normals[third],normal);
-        
-            this.indexData.push(first);
-            this.indexData.push(second);
-            this.indexData.push(third);            
-            this.numIndices += 3;
+            this.indexData.push(start+i);
+            this.indexData.push(start+i+1);
+            this.indexData.push(start+(this.resolution+1)+i);
         }
         
-        
-        var vertexOffset = this.numVertices;
-        var indexOffset = this.numIndices;
-        
-        // center bottom
-        var newVertex = vec4(0.0,0.0,0.0,1.0);
-        positions.push(newVertex);
-        normals.push(vec3(0,0,0));
-        uv.push(vec2(0,0));
-        this.numVertices++;
-        
-        for (var i = 0; i < this.resolution; i++)
+        if (!this.noBottom) 
         {
-            angle = step * i;
-            var newVertex = vec4(
-                this.radius * Math.cos(angle),
-                0.0,
-                this.radius * Math.sin(angle),
-                1.0);
+            var startIndex = positions.length;
             
-            positions.push(newVertex);
-            normals.push(vec3(0,0,0));
-            uv.push(vec2(0,0));
-            this.numVertices++;
-        }
+            positions.push(
+                vec4(
+                    0,
+                    0,
+                    -this.height/2,
+                    1.0
+                )
+            );            
+            normals.push(
+                vec3(
+                    0,
+                    0,
+                    -1
+                )
+            );
+            uv.push(vec2(0.5,0.5));           
+
+            for (var i = 0; i <= this.resolution; i++) 
+            {
+                u = 2*Math.PI - i*step;
+                var c = Math.cos(u);
+                var s = Math.sin(u);
+                
+                positions.push(
+                    vec4(
+                        c*this.radius,
+                        s*this.radius,
+                        -this.height/2,
+                        1.0
+                    )
+                );
+                
+                normals.push(
+                    vec3(
+                        0,
+                        0,
+                        -1
+                    )
+                );
+
+                uv.push(vec2(0.5 - 0.5*c,0.5 + 0.5*s));
+            }
+            for (var i = 0; i < this.resolution; i++) 
+            {
+                this.indexData.push(startIndex);
+                this.indexData.push(startIndex+i+1);
+                this.indexData.push(startIndex+i+2);
+            }
+        } 
         
-        // bottom part of the cone
-        for (var i = 0; i < this.resolution; i++) 
-        {
-            var first = vertexOffset;
-            var third = 1 + ((i+1) % this.resolution) + vertexOffset;
-            var second = 1 + (i % this.resolution) + vertexOffset;
-            
-            
-            var a = positions[first];
-            var b = positions[second];
-            var c = positions[third];
-            
-            var normal = computeNormal(c,b,a);
-            normals[first] = add(normals[first],normal);
-            normals[second] = add(normals[second],normal);
-            normals[third] = add(normals[third],normal);
-        
-            this.indexData.push(third);
-            this.indexData.push(second);
-            this.indexData.push(first);            
-            this.numIndices += 3;
-        }
-        
+        this.numIndices = this.indexData.length;
+        this.numVertices = positions.length;
+                
         for (var i = 0; i < normals.length; ++i)
         {
             normals[i] = normalize(normals[i]);

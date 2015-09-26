@@ -173,15 +173,15 @@ function Cube()
             this.vertexArray.push(uv[i]);
             this.vertexArray.push(normals[i]);
             
-            console.log(normals[i]);
+            //console.log(normals[i]);
         }
         
         uv = [];
         normals = [];
         positions = [];
         
-        console.log(this.numIndices);
-        console.log(this.numVertices);
+        //console.log(this.numIndices);
+        //console.log(this.numVertices);
     }
     
     this.initBuffers = function()
