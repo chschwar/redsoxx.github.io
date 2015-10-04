@@ -1,5 +1,13 @@
 <html>
 <head>
+
+    <!-- 
+    Blinn – Phong model uses the concept of Halfway vector(H) 
+    between Light source (L) and View direction (V) instead of Reflection(R).
+    http://in2gpu.com/2014/06/19/lighting-vertex-fragment-shader/
+    http://learningwebgl.com/blog/?p=684
+    http://www.tomdalling.com/blog/modern-opengl/08-even-more-lighting-directional-lights-spotlights-multiple-lights/
+    -->
     <meta http-equiv="Content-Type" content="text/html;charset=utf-8">
     <title>Phong lighting</title>
     
@@ -13,7 +21,7 @@
     uniform mat4 vw_matrix;
     uniform mat3 normal_matrix;
     
-    varying vec3 fNormal;
+    varying vec3 fNormal_world;
     varying vec3 fPosition_eye;
     varying vec3 fPosition_world;
     
@@ -23,7 +31,7 @@
         vec4 position_eye = mlvw_matrix * vPosition;    // position in eye space
         fPosition_world = (ml_matrix * vPosition).xyz;  // position in world space
         gl_Position = pr_matrix * position_eye;         // position in clip space
-        fNormal = normalize(normal_matrix * vNormal);
+        fNormal_world = normalize(normal_matrix * vNormal);
         fPosition_eye = position_eye.xyz/position_eye.w; // (Note: eyeCoords.w is 1 unless modelview is weird)
     }
     </script>
@@ -35,13 +43,21 @@
        precision mediump float;
     #endif
     
+    const float PI = 3.14;
+    
     uniform vec4 uLightPosition_world;
     uniform vec4 uLightDirection_world;
     
+    uniform vec4 uCameraPosition_world;
+    
+    uniform mat4 ml_matrix;
+    uniform mat4 pr_matrix;
     uniform mat4 vw_matrix;
+    uniform mat3 normal_matrix;
+    
     uniform vec4 ambientProduct, diffuseProduct, specularProduct;
     uniform float materialShininess;
-    varying vec3 fNormal;
+    varying vec3 fNormal_world;
     
     uniform bool uBlinn;
     uniform int uLightType;
@@ -49,21 +65,27 @@
     varying vec3 fPosition_eye;
     varying vec3 fPosition_world;
     
+    float influence(vec3 normal, float coneAngle)
+    {
+        float minConeAngle = ((360.0-coneAngle-10.0)/360.0)*PI;
+        float maxConeAngle = ((360.0-coneAngle)/360.0)*PI;
+        return smoothstep(minConeAngle, maxConeAngle, acos(normal.z));
+    }
     
 
-    float blinn(vec3 lightDirection, vec3 viewDirection, vec3 normal, float materialShininess)
+    float blinn(vec3 L, vec3 V, vec3 N, float materialShininess)
     {
         // blinn modification - half way in eye coordinates
-        vec3 halfwayDir  = normalize( lightDirection + viewDirection );
-        float Ks = pow( max(dot(normal, halfwayDir), 0.0), materialShininess );
+        vec3 H  = normalize( L + V );
+        float Ks = pow( max(dot(N, H), 0.0), materialShininess );
         
         return Ks;
     }
     
-    float phong(vec3 lightDirection, vec3 viewDirection, vec3 normal, float materialShininess)
+    float phong(vec3 L, vec3 V, vec3 N, float materialShininess)
     {
-        vec3 reflectDirection = reflect(-lightDirection, normal);
-        float Ks = pow(max(dot(viewDirection, viewDirection), 0.0), materialShininess);
+        vec3 R = normalize(reflect(-L, N));
+        float Ks = pow(max(dot(R, V), 0.0), materialShininess);
         
         return Ks;
     }
@@ -71,35 +93,50 @@
     
     void main()
     {
-        vec3 L;
-        //vec4 lightPosition_eye = vw_matrix * uLightPosition_world;
-        vec4 lightPosition_eye = uLightPosition_world;
+        /*
+        L  - Light source vector (direction) striking the surface
+        (abbreviated to 'L', but remember this is a vector).
+
+        V  - Viewpoint vector (eyepoint) looking at the surface
+        (abbreviated to 'V', but remember this is a vector).
+
+        N  - Normal vector (perpendicular) to the surface
+        (abbreviated to 'N', but remember this is a vector).
+        */
+
+        // light direction 
+        vec3 L = normalize( uLightPosition_world.xyz/uLightPosition_world.w - fPosition_world );
         
-        // L is the direction to light            
-        vec3 E = normalize( uLightPosition_world.xyz );
+        // view direction (direction to eye)
+        vec3 V = normalize( uCameraPosition_world.xyz/uCameraPosition_world.w - fPosition_world );
         
-        // normals in eye coordinates
-        vec3 N = fNormal;        
+        // normals in world coordinates
+        vec3 N = fNormal_world;        
         
         // Compute terms in the illumination equation
         vec4 ambient = ambientProduct;
         
         float spotlightFactor = 1.0;
+        
+        // point light
         if (1 == uLightType)
         {
             if(uLightPosition_world.w == 0.0)  
             {
-                L = normalize( uLightPosition_world.xyz);
+                // light direction
+                L = -normalize( uLightPosition_world.xyz);
             }
             else
             {
-                //L = normalize( lightPosition_eye.xyz/lightPosition_eye.w - fPosition_eye);
-                L = normalize( uLightPosition_world.xyz/uLightPosition_world.w - fPosition_world);
+                // light direction
+                L = normalize( uLightPosition_world.xyz/uLightPosition_world.w - fPosition_world );
             }    
         }
         
+        // directional light
         if (2 == uLightType)
         {
+            // light direction
             L = -normalize(uLightDirection_world.xyz);
         }
         if (3 == uLightType)
@@ -114,7 +151,8 @@
             }*/
             
             spotlightFactor = (spot_dot - spot_arc) / (1.0 - spot_arc);
-            spotlightFactor = clamp (spotlightFactor, 0.0, 1.0);
+            spotlightFactor = clamp (spotlightFactor, 0.1, 1.0);
+            //spotlightFactor = influence(L,55.0);
         }
         
         // only ambient light
@@ -126,19 +164,19 @@
         else
         {
             float Kd = max( dot(L, N), 0.0 );
+            if (Kd > 1.0)
+                Kd = 1.0;
             vec4 diffuse = Kd * diffuseProduct * spotlightFactor;
             
-            vec3 H = normalize( L + E );
-            float Ks = blinn(L, E, N, materialShininess);
+            float Ks = blinn(L, V, N, materialShininess);
             vec4 specular = Ks * specularProduct * spotlightFactor;
             
             if( dot(L, N) < 0.0 ) 
             {
                 specular = vec4(0.0, 0.0, 0.0, 1.0);
-            } 
-
+            }
+            
             gl_FragColor = ambient + diffuse + specular;
-
             gl_FragColor.a = 1.0;
         }
     }
@@ -167,20 +205,6 @@
     <tr>
     <td valign="top" rowspan="25"><canvas id="gl-canvas" width="900" height="900"> Oops ... your browser doesn't support the HTML5 canvas element </canvas></td>
     <td>
-        <label><b>Light Position:</b> <select id="light">
-        <option value="0">[1,1,0,1]</option>
-        <option value="1">[-1,1,0,1]</option>
-        <option value="2">[0,1,1,1]</option>
-        <option value="3">[0,1,-1,1]</option>
-        <option value="4">[1,1,0,1]</option>
-        <option value="5">[-1,1,0,1]</option>
-        <option value="6">[0,1,1,1]</option>
-        <option value="7">[0,1,-1,1]</option>
-        <option value="8">[1,1,1,1]</option>
-        <option value="9">[-1,1,-1,1]</option>
-        <option value="10">[1,1,1,1]</option>
-        <option value="11">[-1,1,-1,1]</option>
-    </select></label><br>
     <label><b>Light type:</b> <br><select id="lighttype">
         <option value="0">Ambient Light</option>
         <option value="1">Point Light</option>

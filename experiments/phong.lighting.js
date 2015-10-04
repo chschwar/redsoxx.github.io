@@ -1,15 +1,19 @@
 
-function throwOnGLError(err, funcName, args) {
+function throwOnGLError(err, funcName, args) 
+{
   throw WebGLDebugUtils.glEnumToString(err) + " was caused by call to: " + funcName;
 };
 
-function logGLCall(functionName, args) {   
+function logGLCall(functionName, args) 
+{   
    console.log("gl." + functionName + "(" + 
       WebGLDebugUtils.glFunctionArgsToString(functionName, args) + ")");   
 } 
 
-function validateNoneOfTheArgsAreUndefined(functionName, args) {
-  for (var ii = 0; ii < args.length; ++ii) {
+function validateNoneOfTheArgsAreUndefined(functionName, args) 
+{
+  for (var ii = 0; ii < args.length; ++ii) 
+  {
     if (args[ii] === undefined) {
       console.error("undefined passed to gl." + functionName + "(" +
                      WebGLDebugUtils.glFunctionArgsToString(functionName, args) + ")");
@@ -17,7 +21,8 @@ function validateNoneOfTheArgsAreUndefined(functionName, args) {
   }
 } 
 
-function logAndValidate(functionName, args) {
+function logAndValidate(functionName, args) 
+{
    logGLCall(functionName, args);
    validateNoneOfTheArgsAreUndefined (functionName, args);
    
@@ -102,14 +107,6 @@ function initialize()
 window.onload = function init() 
 {
     initialize();
-    
-    document.getElementById("light").value = "0";
-    document.getElementById("light").onchange = function() 
-    {
-        var val = Number(this.value);
-        g_lightLocationIdx = val;
-        shadowRenderer();
-    };
     
     document.getElementById("lighttype").value = "1";
     document.getElementById("lighttype").onchange = function() 
@@ -249,40 +246,6 @@ function renderScene()
     }
 }
 
-
-var g_lightPositions_world = 
-[  // values for light position, selected by popup menu
-    vec4(1,1,0,1),
-    vec4(-1,1,0,1),
-    vec4(0,1,1,1), 
-    vec4(0,1,-1,1), 
-    vec4(1,1,0,1), 
-    vec4(-1,1,0,1), 
-    vec4(0,1,1,1), 
-    vec4(0,1,-1,1), 
-    vec4(1,1,1,1), 
-    vec4(-1,1,-1,1), 
-    vec4(1,1,1,1),
-    vec4(-1,1,-1,1)
-];
-
-var g_lightDirection_world = 
-[  // values for light position, selected by popup menu
-    subtract(vec4(0,0,0,1), g_lightPositions_world[0]), 
-    subtract(vec4(0,0,0,1), g_lightPositions_world[1]), 
-    subtract(vec4(0,0,0,1), g_lightPositions_world[2]), 
-    subtract(vec4(0,0,0,1), g_lightPositions_world[3]), 
-    subtract(vec4(0,0,0,1), g_lightPositions_world[4]), 
-    subtract(vec4(0,0,0,1), g_lightPositions_world[5]), 
-    subtract(vec4(0,0,0,1), g_lightPositions_world[6]),
-    subtract(vec4(0,0,0,1), g_lightPositions_world[7]), 
-    subtract(vec4(0,0,0,1), g_lightPositions_world[8]), 
-    subtract(vec4(0,0,0,1), g_lightPositions_world[9]), 
-    subtract(vec4(0,0,0,1), g_lightPositions_world[10]), 
-    subtract(vec4(0,0,0,1), g_lightPositions_world[11])
-];
-
-
 function send(materialAmbient, materialDiffuse, materialSpecular, materialShininess)
 {
     var lightPosition = g_directionalLight.getPosition();
@@ -291,19 +254,15 @@ function send(materialAmbient, materialDiffuse, materialSpecular, materialShinin
     var diffuseLight = g_directionalLight.getDiffuseLight();
     var specularLight = g_directionalLight.getSpecularLight();
     
-    var newLightPosition = g_lightPositions_world[g_lightLocationIdx];
-    //console.log(g_lightDirection_world[g_lightLocationIdx]);
-    var newLightDirection = normalize(g_lightDirection_world[g_lightLocationIdx],true);
-    newLightDirection = vec4(newLightDirection[0],newLightDirection[1],newLightDirection[2],1);
-    //newLightPosition = vec4(-0.02,0.0,1,1);
-    
+    // compute the new light position
+    var newLightPosition = vec4(0,0,0,1);
     newLightPosition[0] = 1.8*Math.sin(0.01*g_time)-1.5;
     newLightPosition[1] = 1.8*Math.cos(0.01*g_time);
     newLightPosition[2] = 0.5+Math.sin(0.01*g_time)*0.5;
     
-    
-    
-    
+    // compute light direction - it should aim to 0,0,0
+    var newLightDirection = subtract(vec4(0,0,0,1),vec4(newLightPosition[0],newLightPosition[1],newLightPosition[2],0));
+    newLightDirection = normalize(newLightDirection,true);
         
     if (null != g_lightSphere)
     {
@@ -332,8 +291,10 @@ function send(materialAmbient, materialDiffuse, materialSpecular, materialShinin
     var g_lightTypeLocation = gl.getUniformLocation(g_shadowProgram, "uLightType");
     gl.uniform1i(g_lightTypeLocation, g_lightTypeIdx);
     
-    var g_lightDirection_worldLocation = gl.getUniformLocation(g_shadowProgram, "uLightDirection_eye");
+    var g_lightDirection_worldLocation = gl.getUniformLocation(g_shadowProgram, "uLightDirection_world");
     gl.uniform4fv(g_lightDirection_worldLocation, flatten(newLightDirection));
+    gl.uniform3fv(g_shadow_cameraPositionLocation, flatten(g_eye));
+    
     
 }
 
@@ -342,9 +303,6 @@ function send(materialAmbient, materialDiffuse, materialSpecular, materialShinin
 var OFFSCREEN_HEIGHT = 2048;
 var OFFSCREEN_WIDTH = 2048;
 
-//var g_vPosition = 0;
-//var g_vNormal = 0;
-//var g_vUv = 0;
 
 var g_ml_matrix_location = 0;
 var g_pr_matrix_location = 0;
@@ -401,30 +359,11 @@ function secondPass()
     
     genPerspectiveProjectionMatrix();
     gl.uniformMatrix4fv(g_vw_matrix_location, false, flatten(g_vw_matrix));    
+    
     send(g_materialAmbient, g_materialDiffuse, g_materialSpecular, g_materialShininess);
         
     renderScene();
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -442,6 +381,7 @@ var g_shadow_normal_matrix_location = 0;
 var g_shadow_lightLocation = 0;
 var g_shadow_lightTypeLocation = 0;
 var g_shadow_lightDirectionLocation = 0;
+var g_shadow_cameraPositionLocation = 0;
 
 var g_shadow_materialAmbientProductLocation = 0;
 var g_shadow_materialDiffuseProductLocation = 0;
@@ -464,7 +404,8 @@ function initShadowShaders()
     
     g_shadow_lightLocation = gl.getUniformLocation(g_shadowProgram,"uLightPosition_world");
     g_shadow_lightTypeLocation = gl.getUniformLocation(g_shadowProgram, "uLightType");    
-    g_shadow_lightDirectionLocation = gl.getUniformLocation(g_shadowProgram, "uLightDirection_eye");
+    g_shadow_lightDirectionLocation = gl.getUniformLocation(g_shadowProgram, "uLightDirection_world");
+    g_shadow_cameraPositionLocation = gl.getUniformLocation(g_shadowProgram, "uCameraPosition_world");
     
     g_shadow_materialAmbientProductLocation = gl.getUniformLocation(g_shadowProgram, "ambientProduct");
     g_shadow_materialDiffuseProductLocation = gl.getUniformLocation(g_shadowProgram, "diffuseProduct");
@@ -475,19 +416,6 @@ function initShadowShaders()
     
     gl.useProgram(null);
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
